@@ -733,7 +733,8 @@ def distributed_eval(
 
         temp_zarr_path = temporary_directory + '/segmentation_unstitched.zarr'
         temp_zarr = zarr.open(
-            temp_zarr_path, 'w',
+            store=temp_zarr_path,
+            mode = 'w',
             shape=input_zarr.shape,
             chunks=blocksize,
             dtype=np.uint32,
@@ -773,8 +774,8 @@ def distributed_eval(
                 ncpus=1,
                 memory="15GB",
                 mem=int(15e9),
-                queue=None,
-                job_extra_directives=[],
+                queue=cluster.locals_store['kwargs']['queue'],
+                job_extra_directives=cluster.locals_store['kwargs']['job_extra_directives'],
             )
     
         segmentation_da = dask.array.from_zarr(temp_zarr)
@@ -886,6 +887,8 @@ def block_face_adjacency_graph(faces, nlabels):
         face = np.concatenate((a, b), axis=np.argmin(a.shape))
         mapped = dask_image.ndmeasure._utils._label._across_block_label_grouping(face, structure)
         all_mappings.append(mapped)
+    if not all_mappings:
+        return scipy.sparse.coo_matrix((nlabels+1, nlabels+1)).tocsr()
     i, j = np.concatenate(all_mappings, axis=1)
     v = np.ones_like(i)
     return scipy.sparse.coo_matrix((v, (i, j)), shape=(nlabels+1, nlabels+1)).tocsr()
